@@ -42,7 +42,7 @@ if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
 # Step 4: Install packages using Chocolatey
 Beautify-Output "Installing Packages using Chocolatey"
 Write-StepMessage "Installing packages..." $Cyan
-choco install googlechrome vscode discord telegram notepadplusplus emeditor docker-desktop -y
+choco install googlechrome vscode discord telegram notepadplusplus emeditor docker-desktop -y --ignore-checksum
 if ($LASTEXITCODE -ne 0) {
     Write-StepMessage "Package installation failed!" $Red
     exit 1
