@@ -1,9 +1,3 @@
-# ANSI escape sequences for styling output
-$Green = [char]27 + '[32m'
-$Yellow = [char]27 + '[33m'
-$Cyan = [char]27 + '[36m'
-$ResetColor = [char]27 + '[0m'
-
 # Function to display step messages with color
 function Write-StepMessage {
     param(
@@ -21,30 +15,26 @@ function Beautify-Output {
     Write-Host "`n$($Message.ToUpper())" -ForegroundColor DarkCyan
 }
 
-# Step 1: Check if Scoop is installed or install Scoop
-Beautify-Output "Installing Scoop"
-Write-StepMessage "Checking Scoop installation..." $Cyan
-if (-not (Test-Path $env:USERPROFILE\scoop)) {
-    Write-StepMessage "Scoop is not installed. Installing Scoop..." $Yellow
-    iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
-    Write-StepMessage "Scoop installed successfully!" $Green
-} else {
-    Write-StepMessage "Scoop is already installed." $Green
-}
-
-# Step 2: Install Git using Scoop
-Beautify-Output "Installing Git using Scoop"
-Write-StepMessage "Installing Git..." $Cyan
-scoop install git
-Write-StepMessage "Git installed successfully!" $Green
+# ANSI escape sequences for styling output
+$Green = [console]::ForegroundColor = "Green"
+$Yellow = [console]::ForegroundColor = "Yellow"
+$Cyan = [console]::ForegroundColor = "Cyan"
+$ResetColor = [console]::ResetColor
 
 # Step 3: Check if Chocolatey is installed or install Chocolatey
 Beautify-Output "Installing Chocolatey"
 Write-StepMessage "Checking Chocolatey installation..." $Cyan
-if (-not (Test-Path $env:ProgramData\chocolatey)) {
+if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
     Write-StepMessage "Chocolatey is not installed. Installing Chocolatey..." $Yellow
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-    Write-StepMessage "Chocolatey installed successfully!" $Green
+
+    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) 
+
+    if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
+        Write-StepMessage "Chocolatey installation failed!" $Red
+        exit 1
+    } else {
+        Write-StepMessage "Chocolatey installed successfully!" $Green
+    }
 } else {
     Write-StepMessage "Chocolatey is already installed." $Green
 }
@@ -52,12 +42,26 @@ if (-not (Test-Path $env:ProgramData\chocolatey)) {
 # Step 4: Install packages using Chocolatey
 Beautify-Output "Installing Packages using Chocolatey"
 Write-StepMessage "Installing packages..." $Cyan
-choco install googlechrome vscode discord telegram notepadplusplus emeditor docker-desktop `
---source windowsfeatures `
---confirm `
---no-progress `
---use-system-powershell `
---override `
---ignore-dependencies `
---not-silent
-Write-StepMessage "Packages installed successfully!" $Green
+choco install googlechrome vscode discord telegram notepadplusplus emeditor docker-desktop -y
+if ($LASTEXITCODE -ne 0) {
+    Write-StepMessage "Package installation failed!" $Red
+    exit 1
+} else {
+    Write-StepMessage "Packages installed successfully!" $Green
+}
+
+# Step 5: Install Windows features (WSL and Virtual Machine Platform)
+Beautify-Output "Installing Windows Features"
+Write-StepMessage "Enabling Windows Subsystem for Linux (WSL) and Virtual Machine Platform..." $Cyan
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -NoRestart
+Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -NoRestart
+Write-StepMessage "Windows features installed successfully!" $Green
+
+# Step 6: Update WSL and Install Ubuntu
+Beautify-Output "Updating WSL and Installing Ubuntu"
+Write-StepMessage "Updating WSL..." $Cyan
+wsl --set-default-version 2
+Write-StepMessage "WSL updated successfully!" $Green
+Write-StepMessage "Installing Ubuntu..." $Cyan
+wsl --install -d Ubuntu
+Write-StepMessage "Ubuntu installed successfully!" $Green
