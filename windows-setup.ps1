@@ -1,10 +1,10 @@
-# Function to display step messages with color
+# Enhanced function to display step messages with customizable color
 function Write-StepMessage {
     param(
         [string]$Message,
-        [string]$Color
+        [ConsoleColor]$Color
     )
-    Write-Host "$Color$Message$ResetColor"
+    Write-Host "$Message" -ForegroundColor $Color
 }
 
 # Function to beautify the output
@@ -15,53 +15,57 @@ function Beautify-Output {
     Write-Host "`n$($Message.ToUpper())" -ForegroundColor DarkCyan
 }
 
-# ANSI escape sequences for styling output
-$Green = [console]::ForegroundColor = "Green"
-$Yellow = [console]::ForegroundColor = "Yellow"
-$Cyan = [console]::ForegroundColor = "Cyan"
-$ResetColor = [console]::ResetColor
+# Improved handling of ANSI color sequences for PowerShell
+$Colors = @{
+    "Green" = [ConsoleColor]::Green
+    "Yellow" = [ConsoleColor]::Yellow
+    "Cyan" = [ConsoleColor]::Cyan
+    "Red" = [ConsoleColor]::Red
+}
 
-# Step 3: Check if Chocolatey is installed or install Chocolatey
+# Installing Chocolatey and checking installation status
 Beautify-Output "Installing Chocolatey"
-Write-StepMessage "Checking Chocolatey installation..." $Cyan
+Write-StepMessage "Checking Chocolatey installation..." $Colors["Cyan"]
 if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-    Write-StepMessage "Chocolatey is not installed. Installing Chocolatey..." $Yellow
+    Write-StepMessage "Chocolatey is not installed. Installing Chocolatey..." $Colors["Yellow"]
 
-    Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')) 
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
     if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
-        Write-StepMessage "Chocolatey installation failed!" $Red
+        Write-StepMessage "Chocolatey installation failed!" $Colors["Red"]
         exit 1
     } else {
-        Write-StepMessage "Chocolatey installed successfully!" $Green
+        Write-StepMessage "Chocolatey installed successfully!" $Colors["Green"]
     }
 } else {
-    Write-StepMessage "Chocolatey is already installed." $Green
+    Write-StepMessage "Chocolatey is already installed." $Colors["Green"]
 }
 
-# Step 4: Install packages using Chocolatey
+# Installing packages using Chocolatey
 Beautify-Output "Installing Packages using Chocolatey"
-Write-StepMessage "Installing packages..." $Cyan
+Write-StepMessage "Installing packages..." $Colors["Cyan"]
 choco install googlechrome vscode discord telegram notepadplusplus emeditor docker-desktop -y --ignore-checksum
 if ($LASTEXITCODE -ne 0) {
-    Write-StepMessage "Package installation failed!" $Red
+    Write-StepMessage "Package installation failed!" $Colors["Red"]
     exit 1
 } else {
-    Write-StepMessage "Packages installed successfully!" $Green
+    Write-StepMessage "Packages installed successfully!" $Colors["Green"]
 }
 
-# Step 5: Install Windows features (WSL and Virtual Machine Platform)
+# Installing Windows features (WSL and Virtual Machine Platform)
 Beautify-Output "Installing Windows Features"
-Write-StepMessage "Enabling Windows Subsystem for Linux (WSL) and Virtual Machine Platform..." $Cyan
+Write-StepMessage "Enabling Windows Subsystem for Linux (WSL) and Virtual Machine Platform..." $Colors["Cyan"]
 Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -NoRestart
 Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -NoRestart
-Write-StepMessage "Windows features installed successfully!" $Green
+Write-StepMessage "Windows features installed successfully!" $Colors["Green"]
 
-# Step 6: Update WSL and Install Ubuntu
+# Update WSL and Install Ubuntu
 Beautify-Output "Updating WSL and Installing Ubuntu"
-Write-StepMessage "Updating WSL..." $Cyan
+Write-StepMessage "Updating WSL..." $Colors["Cyan"]
 wsl --set-default-version 2
-Write-StepMessage "WSL updated successfully!" $Green
-Write-StepMessage "Installing Ubuntu..." $Cyan
+Write-StepMessage "WSL updated successfully!" $Colors["Green"]
+Write-StepMessage "Installing Ubuntu..." $Colors["Cyan"]
 wsl --install -d Ubuntu
-Write-StepMessage "Ubuntu installed successfully!" $Green
+Write-StepMessage "Ubuntu installed successfully!" $Colors["Green"]
