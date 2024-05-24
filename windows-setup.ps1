@@ -85,7 +85,7 @@ Write-StepMessage "Ubuntu installed successfully!" $Colors["Green"]
 # Download and install 922S5Proxy
 Beautify-Output "Installing 922S5Proxy"
 Write-StepMessage "Downloading 922S5Proxy..." $Colors["Cyan"]
-$installerPath = "$env:TEMP\922S5Proxy_1.5.5.0509_1023.exe"
+$installerPath = "$env:TEMP\\922S5Proxy_1.5.5.0509_1023.exe"
 Invoke-WebRequest -Uri "https://dl.922proxy.com/version/202405/922S5Proxy_1.5.5.0509_1023.exe" -OutFile $installerPath
 if (Test-Path $installerPath) {
     Write-StepMessage "Installing 922S5Proxy..." $Colors["Cyan"]
@@ -104,7 +104,7 @@ if (Test-Path $installerPath) {
 # Download and install GoLogin
 Beautify-Output "Installing GoLogin"
 Write-StepMessage "Downloading GoLogin..." $Colors["Cyan"]
-$installerPathGoLogin = "$env:TEMP\gologin.exe"
+$installerPathGoLogin = "$env:TEMP\\gologin.exe"
 Invoke-WebRequest -Uri "https://dl.gologin.com/gologin.exe" -OutFile $installerPathGoLogin
 if (Test-Path $installerPathGoLogin) {
     Write-StepMessage "Installing GoLogin..." $Colors["Cyan"]
@@ -164,38 +164,3 @@ try {
 } catch {
     Write-StepMessage "An error occurred while updating Windows. Skipping..." $Colors["Yellow"]
 }
-
-# Pin applications to taskbar
-Beautify-Output "Pinning applications to taskbar"
-Write-StepMessage "Pinning Google Chrome, Visual Studio Code, Telegram, and Windows Terminal to the taskbar..." $Colors["Cyan"]
-
-$taskScript = @"
-\$appsToPin = @(
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Users\\\$env:USERNAME\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe',
-    'C:\\Users\\\$env:USERNAME\\AppData\\Roaming\\Telegram Desktop\\Telegram.exe',
-    'C:\\Program Files\\WindowsApps\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\wt.exe'
-)
-
-foreach (\$app in \$appsToPin) {
-    \$shell = New-Object -ComObject shell.application
-    \$folder = \$shell.Namespace((Split-Path \$app))
-    \$item = \$folder.Parsename((Split-Path \$app -Leaf))
-    \$verb = \$item.Verbs() | Where-Object { \$_.Name -eq 'Pin to Taskbar' }
-    if (\$verb) {
-        \$verb.DoIt()
-    }
-}
-"@
-
-$taskScriptPath = "$env:TEMP\PinAppsToTaskbar.ps1"
-Set-Content -Path $taskScriptPath -Value $taskScript
-
-$action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$taskScriptPath`""
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
-$task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries)
-
-Register-ScheduledTask -TaskName "PinAppsToTaskbar" -InputObject $task
-Start-ScheduledTask -TaskName "PinAppsToTaskbar"
-Write-StepMessage "Applications pinned to taskbar successfully!" $Colors["Green"]
