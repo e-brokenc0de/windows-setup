@@ -43,19 +43,23 @@ if (-not (Get-Command choco -ErrorAction SilentlyContinue)) {
 }
 
 # Define Chocolatey packages array
-$packages = @("googlechrome", "vscode", "discord", "telegram", "notepadplusplus", "emeditor", "jetbrainstoolbox")
+$packages = @("googlechrome", "vscode", "discord", "telegram", "notepadplusplus", "jetbrainstoolbox")
 
 # Installing packages using Chocolatey
 Beautify-Output "Installing Packages using Chocolatey"
-Write-StepMessage "Installing packages..." $Colors["Cyan"]
 foreach ($package in $packages) {
-    choco install $package -y --ignore-checksum
-    if ($LASTEXITCODE -ne 0) {
-        Write-StepMessage "Package installation failed for $package!" $Colors["Red"]
-        exit 1
+    Write-StepMessage "Installing package $package..." $Colors["Cyan"]
+    try {
+        choco install $package -y --ignore-checksum *> $null
+        if ($LASTEXITCODE -ne 0) {
+            Write-StepMessage "Package installation failed for $package. Skipping..." $Colors["Red"]
+        } else {
+            Write-StepMessage "$package installed successfully!" $Colors["Green"]
+        }
+    } catch {
+        Write-StepMessage "An error occurred while installing $package. Skipping..." $Colors["Yellow"]
     }
 }
-Write-StepMessage "Packages installed successfully!" $Colors["Green"]
 
 # Installing Windows features (WSL and Virtual Machine Platform)
 Beautify-Output "Installing Windows Features"
@@ -63,6 +67,11 @@ Write-StepMessage "Enabling Windows Subsystem for Linux (WSL) and Virtual Machin
 Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -NoRestart
 Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -NoRestart
 Write-StepMessage "Windows features installed successfully!" $Colors["Green"]
+
+# Update WSL
+Write-StepMessage "Updating WSL..." $Colors["Cyan"]
+wsl --update
+Write-StepMessage "WSL updated successfully!" $Colors["Green"]
 
 # Update WSL and Install Ubuntu
 Beautify-Output "Updating WSL and Installing Ubuntu"
@@ -114,32 +123,79 @@ if (Test-Path $installerPathGoLogin) {
 # Install Docker using Chocolatey
 Beautify-Output "Installing Docker using Chocolatey"
 Write-StepMessage "Installing Docker..." $Colors["Cyan"]
-choco install docker-desktop -y --ignore-checksum
-if ($LASTEXITCODE -ne 0) {
-    Write-StepMessage "Docker installation failed!" $Colors["Red"]
-    exit 1
-} else {
-    Write-StepMessage "Docker installed successfully!" $Colors["Green"]
+try {
+    choco install docker-desktop -y --ignore-checksum *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Write-StepMessage "Docker installation failed!" $Colors["Red"]
+        exit 1
+    } else {
+        Write-StepMessage "Docker installed successfully!" $Colors["Green"]
+    }
+} catch {
+    Write-StepMessage "An error occurred while installing Docker. Skipping..." $Colors["Yellow"]
 }
 
 # Update all installed Chocolatey packages
 Beautify-Output "Updating all installed Chocolatey packages"
 Write-StepMessage "Updating all Chocolatey packages..." $Colors["Cyan"]
-choco upgrade all -y
-if ($LASTEXITCODE -ne 0) {
-    Write-StepMessage "Failed to update some Chocolatey packages!" $Colors["Red"]
-    exit 1
-} else {
-    Write-StepMessage "All Chocolatey packages updated successfully!" $Colors["Green"]
+try {
+    choco upgrade all -y *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Write-StepMessage "Failed to update some Chocolatey packages!" $Colors["Red"]
+        exit 1
+    } else {
+        Write-StepMessage "All Chocolatey packages updated successfully!" $Colors["Green"]
+    }
+} catch {
+    Write-StepMessage "An error occurred while updating Chocolatey packages. Skipping..." $Colors["Yellow"]
 }
 
 # Perform Windows Update
 Beautify-Output "Performing Windows Update"
 Write-StepMessage "Updating Windows..." $Colors["Cyan"]
-Install-WindowsUpdate -AcceptAll -AutoReboot
-if ($LASTEXITCODE -ne 0) {
-    Write-StepMessage "Windows Update failed!" $Colors["Red"]
-    exit 1
-} else {
-    Write-StepMessage "Windows updated successfully!" $Colors["Green"]
+try {
+    Install-WindowsUpdate -AcceptAll -AutoReboot *> $null
+    if ($LASTEXITCODE -ne 0) {
+        Write-StepMessage "Windows Update failed!" $Colors["Red"]
+        exit 1
+    } else {
+        Write-StepMessage "Windows updated successfully!" $Colors["Green"]
+    }
+} catch {
+    Write-StepMessage "An error occurred while updating Windows. Skipping..." $Colors["Yellow"]
 }
+
+# Pin applications to taskbar
+Beautify-Output "Pinning applications to taskbar"
+Write-StepMessage "Pinning Google Chrome, Visual Studio Code, Telegram, and Windows Terminal to the taskbar..." $Colors["Cyan"]
+
+$taskScript = @"
+\$appsToPin = @(
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Users\\\$env:USERNAME\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe',
+    'C:\\Users\\\$env:USERNAME\\AppData\\Roaming\\Telegram Desktop\\Telegram.exe',
+    'C:\\Program Files\\WindowsApps\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\wt.exe'
+)
+
+foreach (\$app in \$appsToPin) {
+    \$shell = New-Object -ComObject shell.application
+    \$folder = \$shell.Namespace((Split-Path \$app))
+    \$item = \$folder.Parsename((Split-Path \$app -Leaf))
+    \$verb = \$item.Verbs() | Where-Object { \$_.Name -eq 'Pin to Taskbar' }
+    if (\$verb) {
+        \$verb.DoIt()
+    }
+}
+"@
+
+$taskScriptPath = "$env:TEMP\PinAppsToTaskbar.ps1"
+Set-Content -Path $taskScriptPath -Value $taskScript
+
+$action = New-ScheduledTaskAction -Execute 'PowerShell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$taskScriptPath`""
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
+$task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries)
+
+Register-ScheduledTask -TaskName "PinAppsToTaskbar" -InputObject $task
+Start-ScheduledTask -TaskName "PinAppsToTaskbar"
+Write-StepMessage "Applications pinned to taskbar successfully!" $Colors["Green"]
